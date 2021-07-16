@@ -1,18 +1,22 @@
+import logging
 import time
 import paramiko
 import pandas as pd
+
+
+logger = logging.getLogger('colliderLog')
 
 
 class ShellHandler:
     def __init__(self, host: str, port: str, user: str, password: str):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print('Connecting host...')
+        logger.info('Connecting host...')
         try:
             self.ssh.connect(hostname=host, port=port, username=user, password=password)
         except paramiko.SSHException:
             raise paramiko.SSHException('Cannot login to server\nPlease try again...')
-        print('Connection established')
+        logger.info('Connection established')
         channel = self.ssh.invoke_shell()
         self.stdin = channel.makefile('wb')
         self.stdout = channel.makefile('r')
@@ -49,9 +53,9 @@ class GSH(ShellHandler):
         host = "hpcssd.tau.ac.il"
         port = 22
         super().__init__(host, port, user, password)
-        print('Initializing simulator')
+        logger.info(f'Initializing simulator')
         self._start_gimel(alpha)
-        print('Simulator is ready!')
+        logger.info('Simulator is ready!')
         print()
 
     def _start_gimel(self, alpha):

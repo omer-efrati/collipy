@@ -1,6 +1,6 @@
 from server import GSH
 import pandas as pd
-from particles import *
+from particles import Particle
 
 
 class Collider:
@@ -12,9 +12,6 @@ class Collider:
             raise ValueError(f"alpha must meet the condition: {low} <= alpha <= {high}")
         self.alpha = alpha
         self.geant = GSH(user, password, alpha)
-
-    def is_ready(self):
-        return not self.geant.stdin.closed
 
     def inject(self, particle: Particle, momentum: float, n: int) -> pd.DataFrame:
         txt = self.geant.inject(particle.name, momentum, n)

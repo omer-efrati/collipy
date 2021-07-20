@@ -95,3 +95,6 @@ k_s = Particle('k-short', (497.611, 0.013), (8.954e-11, 0.004e-11), {1: (30.69e-
 pi_0 = Particle('pi-0', (134.9768, 0.0005), (8.43e-17, 0.13e-17),  {1: (98.823e-2, 0.034e-2), 2: (1.174e-2, 0.035e-2)})
 pi_plus = Particle('pi-plus', (139.57039, 0.00018), (2.6033e-8, 0.0005e-8), {1: (99.98770e-2, 0.00004e-2)})
 pi_minus = Particle('pi-minus', (139.57039, 0.00018), (2.6033e-8, 0.0005e-8), {1: (99.98770e-2, 0.00004e-2)})
+
+particles_dict = {'photon': photon, 'electron': electron, 'muon': muon, 'k-short': k_s,
+                  'pi-0': pi_0, 'pi-plus': pi_plus, 'pi-minus': pi_minus}

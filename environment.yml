@@ -1,4 +1,4 @@
-name: colide
+name: collide
 channels:
   - defaults
   - conda-forge

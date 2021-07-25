@@ -1,10 +1,10 @@
 import logging
 import time
 import paramiko
-from parser import parse
+from geant_parser import parse
 
 
-logger = logging.getLogger('colliderLog')
+logger = logging.getLogger('serverLog')
 
 
 class ShellHandler:
@@ -53,18 +53,18 @@ class GSH(ShellHandler):
         host = "hpcssd.tau.ac.il"
         port = 22
         super().__init__(host, port, user, password)
-        logger.info(f'Initializing simulator')
+        logger.info('Initializing simulator')
         self._start_gimel(alpha)
         logger.info('Simulator is ready!')
-        print()
 
     def _start_gimel(self, alpha):
         finish = 'END OF STDOUT\r\n'
         cmd_finish = f'echo {finish}'
         self.execute('cd /var/misc/phys', finish, cmd_finish)
         self.execute('singularity shell --bind /var/misc/phys /docker_scratch/g', finish, cmd_finish)
+        time.sleep(1)
         self.execute('./gimel', ' Workstation type (?=HELP) <CR>=1 :   Invalid workstation type\r\n', 'odeo47')
-        time.sleep(0.1)
+        time.sleep(1)
         cmd = '0\n'
         cmd += 2 * 'Y\n' + f'{alpha}\n' + 3 * 'N\n' if alpha != 1 else 'N\n'
         self.execute(cmd, ' *** Unknown command: odeo47\r\n', 'odeo47')

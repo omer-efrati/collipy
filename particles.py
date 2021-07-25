@@ -49,7 +49,7 @@ class Particle:
         """
         if not (0 <= lb < rb):
             raise ValueError('interval should sustain the inequality 0 <= interval[0] < interval[1]')
-        if np.isinf(self.tau):
+        if np.isinf(self.tau[0]):
             raise ValueError('this particle will not decay at all')
         if lb == 0:
             return 0

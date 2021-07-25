@@ -53,5 +53,6 @@ def particle_by_mode(alpha: float, particle: str, momentum: float, mode: DecayMo
 
 
 if __name__ == '__main__':
-    cal = calibration()
-    ks = particle_by_mode(10, 'k-short', 3.7, DecayMode(1, 2, 0))
+    # cal = calibration()
+    # ks = particle_by_mode(10, 'k-short', 3.7, DecayMode(1, 2, 0))
+    # pi = particle_by_mode(1, 'pi-0', 0.8, DecayMode(0, 0, 2))

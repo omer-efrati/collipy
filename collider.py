@@ -1,9 +1,15 @@
+import logging
+import logging.config
 import pickle
 from server import GSH
 from collections import Counter
 import pandas as pd
 import numpy as np
 from timeit import default_timer as timer
+
+
+logging.config.fileConfig('logging.conf')
+logger = logging.getLogger('colliderLog')
 
 
 class DecayMode:
@@ -188,6 +194,7 @@ class Collider:
         -------
             data : Data
         """
+        logger.info(f'Injecting {particle} {momentum} GeV')
         start = timer()
         data = []
         m = 0
@@ -199,13 +206,15 @@ class Collider:
             m += len(lst)
             for inj in lst:
                 # progress bar - if you want to use it, add print() after the while loop
-                print(f'\r[{int(30 * len(data[:n]) / n) * "#" + (30 - int(30 * len(data[:n]) / n)) * "-"}] '
+                print(f'\r{particle} {momentum:0.2g} GeV '
+                      f'[{int(30 * len(data[:n]) / n) * "#" + (30 - int(30 * len(data[:n]) / n)) * "-"}] '
                       f'{int(100 * len(data[:n]) / n)}% completed '
-                      f'{(timer()-start)/60: 0.2g} minutes passed', end='', flush=True)
+                      f'{(timer()-start)/60: 0.2g} mins', end='', flush=True)
                 cnt[inj.mode.mode] += 1
                 if inj.max_rel <= threshold:
                     if mode <= inj.mode:    # 'inj.mode' contains 'mode'
                         data.append(inj)
         print()
         data = Data(particle, momentum, data, mode, threshold, cnt, m)
+        logger.info(f'Finished injecting {particle} {momentum} GeV')
         return data

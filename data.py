@@ -6,7 +6,7 @@ from collider import Collider, Data, DecayMode
 
 
 logging.config.fileConfig('logging.conf')
-logger = logging.getLogger('dataGeneratorLog')
+logger = logging.getLogger('dataLog')
 user = input('username: \n')
 password = input('password: \n')
 
@@ -25,9 +25,7 @@ def calibration():
             # so i refresh the connection once in a while
             c = Collider(user, password)
             for momentum in momenta:
-                logger.info(f'Injecting {particle} {momentum} GeV')
                 data[particle].append(c.collect(particle, momentum, n, threshold, mode))
-                logger.info(f'Finished injecting {particle} {momentum} GeV')
         with open(path, 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)

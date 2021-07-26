@@ -79,6 +79,12 @@ msq = one + two + three
 dmsq = np.sqrt(done**2 + dtwo**2 + dthree**2)
 m = np.sqrt(msq)
 dm = dmsq/(2*m)
-y, x = np.histogram(a=m, bins=13, range=(0.3, 0.65), weights=1/dm**2)
+w = dm**-2
+bins = 13
+y, x = np.histogram(a=m, bins=bins, range=(0.3, 0.65), weights=w)
+dy = np.sqrt(np.histogram(a=m, bins=bins, range=(0.3, 0.65), weights=w**2)[0])
+dx = ((x[1]-x[0]) / 2) * np.ones_like(y)
+x = np.array([(x[i] + x[i+1])/2 for i in range(len(x)-1)])
+plt.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
 # z = np.abs(zscore(msq))
 # msq = msq[z < 3]  # throwing outliers

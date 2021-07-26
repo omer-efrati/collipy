@@ -77,13 +77,15 @@ class Injection:
 
 class Data:
 
-    def __init__(self, particle: str, momentum: float, data: list[Injection], mode: DecayMode, threshold: float,
-                 cnt: Counter, m: int):
+    def __init__(self, alpha: float, particle: str, momentum: float, data: list[Injection], mode: DecayMode,
+                 threshold: float, cnt: Counter, m: int):
         """Container for injection's data that meet the following requirements:
            * particle's decay mode follows 'mode' decay
            * maximum relative uncertainty for each parameter calculated is smaller than 'threshold'
         Parameters
         ----------
+        alpha
+            multiplicity factor for the magnetic field
         particle
             particle's name (as in README.md)
         momentum
@@ -101,33 +103,12 @@ class Data:
         """
         self.particle = particle
         self.momentum = momentum, 0.01 * momentum  # momentum uncertainty was given by instructor: 1%
+        self.alpha = alpha
         self.vertex, self.track, self.ecal = self._get_df(data)
         self.mode = mode
         self.threshold = threshold
         self.cnt = cnt
         self.m = m
-
-    def __iter__(self):
-        self._iter = []
-        if 0 < len(self.vertex):
-            self._iter.append(self.vertex.groupby(level=0).__iter__())
-        else:
-            self._iter.append(None)
-        if 0 < len(self.track):
-            self._iter.append(self.track.groupby(level=0).__iter__())
-        else:
-            self._iter.append(None)
-        if 0 < len(self.ecal):
-            self._iter.append(self.ecal.groupby(level=0).__iter__())
-        else:
-            self._iter.append(None)
-        return self
-
-    def __next__(self):
-        v = self._iter[0].__next__()[1].droplevel(0) if self._iter[0] is not None else None
-        t = self._iter[1].__next__()[1].droplevel(0) if self._iter[1] is not None else None
-        e = self._iter[2].__next__()[1].droplevel(0) if self._iter[2] is not None else None
-        return v, t, e
 
     @classmethod
     def load(cls, path: str):
@@ -156,7 +137,7 @@ class Data:
 
 class Collider:
 
-    def __init__(self, user: str, password: str, alpha=1, filename='cal_func.pickle'):
+    def __init__(self, user: str, password: str, alpha=1):
         """ Collider object make performing injections seamless
         Parameters
         ----------
@@ -165,28 +146,29 @@ class Collider:
         password
             university password
         alpha: float
-            magnetic field multiplicity parameter: 'alpha' * B_0
-            in the range [0.1, 10]
-        filename: str
-            file name of the calibration parameters fitted using calibration.py module
+            magnetic field multiplicity factor: 'alpha' * B_0
+            alpha is in the range [0.1, 10]
         """
-        low = 0.1
-        high = 10
-        if not low <= alpha <= high:
-            raise ValueError(f"alpha must meet the condition: {low} <= alpha <= {high}")
         self.alpha = alpha
         self._geant = GSH(user, password, alpha)
-        self._momentum_beta = None
-        self._energy_beta = None
-        if filename in os.listdir('data'):
-            with open(os.path.join('data', filename), 'rb') as f:
-                cal = pickle.load(f)
-            self._momentum_beta = cal['momentum']
-            self._energy_beta = cal['energy']
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        low = 0.1
+        high = 10
+        if not low <= value <= high:
+            raise ValueError(f"alpha must meet the condition: {low} <= alpha <= {high}")
+        self._alpha = value
 
     def _inject(self, particle: str, momentum: float, n: int) -> [Injection]:
         """Injecting $n particles and returns a list of Injection objects for successful injections
         therefore the length of the list is $n at most (may be less)"""
+        if not self._geant:
+            raise Exception('Collider is offline')
         lst = self._geant.inject(particle, momentum, n)
         res = []
         for tmp in lst:
@@ -236,50 +218,7 @@ class Collider:
                     if mode <= inj.mode:  # 'inj.mode' contains 'mode'
                         data.append(inj)
         print()
-        data = Data(particle, momentum, data, mode, threshold, cnt, m)
+        data = Data(alpha, particle, momentum, data, mode, threshold, cnt, m)
         logger.info(f'Finished injecting {particle} {momentum} GeV')
         return data
 
-    def kappa_pt(self, k: list, dk: list) -> (list, list):
-        """calibration function for kappa-momentum
-            ***note you can use this function only after calibration***
-        Parameters
-        ----------
-        k
-            list of kappas
-        dk
-            list of 'k' corresponding uncertainties
-
-        Returns
-        -------
-            pt, dpt: list, list
-        """
-        if not self._momentum_beta:
-            raise Exception('Calibration is needed first')
-        beta = self._momentum_beta[0]
-        dbeta = self._momentum_beta[1]
-        pt = beta[0] / (k - beta[1])
-        dpt = pt * np.sqrt((dbeta[0]/beta[0])**2 + (dk / (k - beta[1]))**2 + (dbeta[1] / (k - beta[1]))**2)
-        return pt, dpt
-
-    def ph_e(self, ph: list, dph: list) -> (list, list):
-        """calibration function for pulse height-energy
-            ***note you can use this function only after calibration***
-        Parameters
-        ----------
-        ph
-            list of pulse heights
-        dph
-            list of 'ph' corresponding uncertainties
-
-        Returns
-        -------
-            e, de: list, list
-        """
-        if not self._energy_beta:
-            raise Exception('Calibration is needed first')
-        beta = self._energy_beta[0]
-        dbeta = self._energy_beta[1]
-        e = np.poly1d(beta)(ph)
-        de = np.sqrt((dbeta[0]*ph)**2 + (beta[0]*dph)**2 + (dbeta[1])**2)
-        return e, de

@@ -233,6 +233,76 @@ def best_fit(outs):
     return best_key, outs[best_key]
 
 
+class Cal:
+    """Containing information and function about the collider after calibration
+        DO NOT USE THIS CLASS BEFORE CALIBRATING THE COLLIDER"""
+    def __init__(self, alpha: float):
+        filename = 'cal_func.pickle'
+        if filename not in os.listdir('data'):
+            raise Exception("Calibration is needed before creating a 'Cal' object")
+        with open(os.path.join('data', filename), 'rb') as f:
+            params = pickle.load(f)
+        self.alpha = alpha
+        self._momentum_beta = params['momentum']
+        self._energy_beta = params['energy']
+
+    @property
+    def momentum_beta(self):
+        beta = np.array(self._momentum_beta[0])
+        dbeta = np.array(self._momentum_beta[1])
+        beta[0] *= self.alpha
+        dbeta[0] *= self.alpha
+        return beta, dbeta
+
+    @property
+    def energy_beta(self):
+        beta = np.array(self._energy_beta[0])
+        dbeta = np.array(self._energy_beta[1])
+        return beta, dbeta
+
+    def kappa_pt(self, k: list, dk: list) -> (list, list):
+        """calibration function for kappa-momentum
+            ***note you can use this function only after calibration***
+        Parameters
+        ----------
+        k
+            list of kappas
+        dk
+            list of 'k' corresponding uncertainties
+
+        Returns
+        -------
+            pt, dpt: list, list
+        """
+        beta = self.momentum_beta[0]
+        dbeta = self.momentum_beta[1]
+        pt = beta[0] / (k - beta[1])
+        dpt = np.abs(pt) * np.sqrt((dbeta[0]/beta[0])**2 + (dk / (k - beta[1]))**2 + (dbeta[1] / (k - beta[1]))**2)
+        return pt, dpt
+
+    def ph_e(self, ph: list, dph: list) -> (list, list):
+        """calibration function for pulse height-energy
+            ***note you can use this function only after calibration***
+        Parameters
+        ----------
+        ph
+            list of pulse heights
+        dph
+            list of 'ph' corresponding uncertainties
+
+        Returns
+        -------
+            e, de: list, list
+        """
+        if not self._energy_beta:
+            raise Exception('Calibration is needed first')
+        beta = self._energy_beta[0]
+        dbeta = self._energy_beta[1]
+        e = np.poly1d(beta)(ph)
+        de = np.sqrt((dbeta[0]*ph)**2 + (beta[0]*dph)**2 + (dbeta[1])**2)
+        return e, de
+
+
 if __name__ == '__main__':
     filename = 'cal_func.pickle'
     particles = {'electron': DecayMode(0, 1, 1), 'muon': DecayMode(0, 1, 1), 'photon': DecayMode(0, 0, 1)}
@@ -248,3 +318,4 @@ if __name__ == '__main__':
     cal = {'momentum': (best_pt[0].beta, best_pt[0].sd_beta), 'energy': (best_e[0].beta, best_e[0].sd_beta)}
     with open(os.path.join('data', filename), 'wb') as f:
         pickle.dump(cal, f, pickle.HIGHEST_PROTOCOL)
+

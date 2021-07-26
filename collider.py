@@ -1,5 +1,6 @@
 import logging
 import logging.config
+import os
 import pickle
 from server import GSH
 from collections import Counter
@@ -7,8 +8,7 @@ import pandas as pd
 import numpy as np
 from timeit import default_timer as timer
 
-
-logging.config.fileConfig('logging.conf')
+logging.config.fileConfig('log/logging.conf')
 logger = logging.getLogger('colliderLog')
 
 
@@ -62,11 +62,12 @@ class Injection:
         self.ecal = ecal
         v, t, e = 0, 0, 0
         if 0 < len(vertex):
-            v = np.max(np.abs([vertex.dx/vertex.x, vertex.dy/vertex.y, vertex.dz/vertex.z, vertex.dphi/vertex.phi]))
+            v = np.max(
+                np.abs([vertex.dx / vertex.x, vertex.dy / vertex.y, vertex.dz / vertex.z, vertex.dphi / vertex.phi]))
         if 0 < len(track):
-            t = np.max(np.abs([track.dk/track.k, track.dtan_theta/track.tan_theta]))
+            t = np.max(np.abs([track.dk / track.k, track.dtan_theta / track.tan_theta]))
         if 0 < len(ecal):
-            e = np.max(np.abs([ecal.dx/ecal.x, ecal.dy/ecal.y, ecal.dz/ecal.z]))
+            e = np.max(np.abs([ecal.dx / ecal.x, ecal.dy / ecal.y, ecal.dz / ecal.z]))
         self.mode = DecayMode(len(vertex), len(track), len(ecal))
         self.max_rel = np.max([v, t, e])
 
@@ -99,7 +100,7 @@ class Data:
             number of injections required to create 'data' list
         """
         self.particle = particle
-        self.momentum = momentum, 0.01 * momentum   # momentum uncertainty was given by instructor: 1%
+        self.momentum = momentum, 0.01 * momentum  # momentum uncertainty was given by instructor: 1%
         self.vertex, self.track, self.ecal = self._get_df(data)
         self.mode = mode
         self.threshold = threshold
@@ -109,15 +110,15 @@ class Data:
     def __iter__(self):
         self._iter = []
         if 0 < len(self.vertex):
-            self._iter .append(self.vertex.groupby(level=0).__iter__())
+            self._iter.append(self.vertex.groupby(level=0).__iter__())
         else:
             self._iter.append(None)
         if 0 < len(self.track):
-            self._iter .append(self.track.groupby(level=0).__iter__())
+            self._iter.append(self.track.groupby(level=0).__iter__())
         else:
             self._iter.append(None)
         if 0 < len(self.ecal):
-            self._iter .append(self.ecal.groupby(level=0).__iter__())
+            self._iter.append(self.ecal.groupby(level=0).__iter__())
         else:
             self._iter.append(None)
         return self
@@ -155,13 +156,33 @@ class Data:
 
 class Collider:
 
-    def __init__(self, user: str, password: str, alpha=1):
+    def __init__(self, user: str, password: str, alpha=1, filename='cal_func.pickle'):
+        """ Collider object make performing injections seamless
+        Parameters
+        ----------
+        user
+            university username
+        password
+            university password
+        alpha: float
+            magnetic field multiplicity parameter: 'alpha' * B_0
+            in the range [0.1, 10]
+        filename: str
+            file name of the calibration parameters fitted using calibration.py module
+        """
         low = 0.1
         high = 10
         if not low <= alpha <= high:
             raise ValueError(f"alpha must meet the condition: {low} <= alpha <= {high}")
         self.alpha = alpha
         self._geant = GSH(user, password, alpha)
+        self._momentum_beta = None
+        self._energy_beta = None
+        if filename in os.listdir('data'):
+            with open(os.path.join('data', filename), 'rb') as f:
+                cal = pickle.load(f)
+            self._momentum_beta = cal['momentum']
+            self._energy_beta = cal['energy']
 
     def _inject(self, particle: str, momentum: float, n: int) -> [Injection]:
         """Injecting $n particles and returns a list of Injection objects for successful injections
@@ -209,12 +230,56 @@ class Collider:
                 print(f'\r{particle} {momentum:0.2g} GeV '
                       f'[{int(30 * len(data[:n]) / n) * "#" + (30 - int(30 * len(data[:n]) / n)) * "-"}] '
                       f'{int(100 * len(data[:n]) / n)}% completed '
-                      f'{(timer()-start)/60: 0.2g} mins', end='', flush=True)
+                      f'{(timer() - start) / 60: 0.2g} mins', end='', flush=True)
                 cnt[inj.mode.mode] += 1
                 if inj.max_rel <= threshold:
-                    if mode <= inj.mode:    # 'inj.mode' contains 'mode'
+                    if mode <= inj.mode:  # 'inj.mode' contains 'mode'
                         data.append(inj)
         print()
         data = Data(particle, momentum, data, mode, threshold, cnt, m)
         logger.info(f'Finished injecting {particle} {momentum} GeV')
         return data
+
+    def kappa_pt(self, k: list, dk: list) -> (list, list):
+        """calibration function for kappa-momentum
+            ***note you can use this function only after calibration***
+        Parameters
+        ----------
+        k
+            list of kappas
+        dk
+            list of 'k' corresponding uncertainties
+
+        Returns
+        -------
+            pt, dpt: list, list
+        """
+        if not self._momentum_beta:
+            raise Exception('Calibration is needed first')
+        beta = self._momentum_beta[0]
+        dbeta = self._momentum_beta[1]
+        pt = beta[0] / (k - beta[1])
+        dpt = pt * np.sqrt((dbeta[0]/beta[0])**2 + (dk / (k - beta[1]))**2 + (dbeta[1] / (k - beta[1]))**2)
+        return pt, dpt
+
+    def ph_e(self, ph: list, dph: list) -> (list, list):
+        """calibration function for pulse height-energy
+            ***note you can use this function only after calibration***
+        Parameters
+        ----------
+        ph
+            list of pulse heights
+        dph
+            list of 'ph' corresponding uncertainties
+
+        Returns
+        -------
+            e, de: list, list
+        """
+        if not self._energy_beta:
+            raise Exception('Calibration is needed first')
+        beta = self._energy_beta[0]
+        dbeta = self._energy_beta[1]
+        e = np.poly1d(beta)(ph)
+        de = np.sqrt((dbeta[0]*ph)**2 + (beta[0]*dph)**2 + (dbeta[1])**2)
+        return e, de

@@ -9,12 +9,13 @@ VERTEXES = '  Final coordinates of the vertex:'
 
 
 def _injection_parse(injection: list) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
-    """Parsing a single injection text
+    """Parsing a single injection from GEANT software
     Notes
     =====
     Exception will raise (and return None) for one of the following reasons:
     * GEANT fails to analyze a measurement (gives uncertainty: "**********")
     * finish command might fall in a place where it will interrupt the parsing process
+    These cases occur infrequently, therefore when encountering an Exception, the measurement is discarded.
     """
     vertex = pd.DataFrame(columns=['phi', 'dphi', 'x', 'dx', 'y', 'dy', 'z', 'dz'])
     track = pd.DataFrame(columns=['k', 'dk', 'tan_theta', 'dtan_theta'])
@@ -60,14 +61,28 @@ def _injection_parse(injection: list) -> (pd.DataFrame, pd.DataFrame, pd.DataFra
     return vertex, track, ecal
 
 
-def parse(txt: str) -> list:
-    """Parsing data from GEANT software"""
+def parse(txt: str) -> [(pd.DataFrame, pd.DataFrame, pd.DataFrame)]:
+    """Parsing injections data from GEANT software
+
+    Parameters
+    ----------
+        txt
+            text received from GEANT after one or multiple injections
+
+    Returns
+    -------
+        res
+            list of tuples, each consists of the following data: (vertexes, tracks, ecal indications)
+    """
     res = []
+    # each injection is bounded by this row
     injections = txt.split('GEANT > inject\r\n')
-    injections.pop(0)
+    # injections.pop(0)     # information about the particle and momentum is stored in this row
     for _, inject in enumerate(injections):
+        # remove all blank spaces
         inject = inject.split('\r\n')
         inject = list(filter(None, inject))
+        # parsing a single injection
         inj = _injection_parse(inject)
         if inj is not None:
             res.append(inj)

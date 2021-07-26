@@ -10,25 +10,41 @@ from collider import Collider, Data, DecayMode
 from util import fit_ols
 import matplotlib.pyplot as plt
 
-logging.config.fileConfig('logging.conf')
+logging.config.fileConfig('log/logging.conf')
 logger = logging.getLogger('callibrationLog')
 trans = (2 * giga) / (c * centi)
 
 
-def collect_data():
-    filename = 'cal.pickle'
-    n = 200
-    threshold = 0.05
-    momenta = [i for i in range(10, 110, 10)]
+def collect_data(particles: {str: DecayMode}, momenta: list, filename='cal.pickle', n=200, threshold=0.05) -> dict:
+    """Collecting data for calibration
+        notice that if the file exists, the function will load the data from it
+    Parameters
+    ----------
+    particles
+        {key: value} where the key is a particle and the value is the decay mode required
+        example: {'electron': DecayMode(0,1,1)} means injecting electron and receiving a reading
+        no vertex, single track and a single reading at the ECAL
+    momenta
+        list of momentum for each particle
+    filename: str
+        name of file to load the data from or save the data to after collecting
+    n: int
+        lower bound for the number of measurements required
+    threshold: float
+        an upper bound for the relative uncertainty allowed for all the parameters in a single injection
+        vertex.dx/vertex.x, ..., track.dk/track.k, ..., ecal.dph/ecal.ph, ... <= 'threshold'
+    Returns
+    -------
+        res
+            {particle name: 'Data' object for each momentum from 'momenta'}
+    """
     path = os.path.join('data', filename)
     if filename not in os.listdir('data'):
         user = input('username: \n')
         password = input('password: \n')
-        data = {key: [] for key in ['electron', 'muon', 'photon']}
-        particles = {'electron': DecayMode(0, 1, 1), 'muon': DecayMode(0, 1, 1), 'photon': DecayMode(0, 0, 1)}
+        data = {key: [] for key in particles.keys()}
         for particle, mode in particles.items():
-            # After couple of hours of open connection the server kicks us out
-            # so i refresh the connection once in a while
+            # new collider for each particle to avoid getting kicked out from the server (may happen after a while)
             c = Collider(user, password)
             for momentum in momenta:
                 data[particle].append(c.collect(particle, momentum, n, threshold, mode))
@@ -43,9 +59,22 @@ def collect_data():
 
 
 def kappa_pt(lst: [Data]) -> pd.DataFrame:
+    """Calculate the data for kappa-momentum calibration from a list of 'Data' objects
+
+    Parameters
+    ----------
+    lst
+        each 'Data' object contain data of the same particle with different momentum
+
+    Returns
+    -------
+    df
+        DataFrame with the columns ['k', 'dk', 'pt', 'dpt']
+    """
     rows = []
     for data in lst:
         track = data.track
+        # adding statistical uncertainty to the measurements and calculating the mean
         dk = np.sqrt(track.dk ** 2 + np.var(track.k, ddof=1))
         k, sum = np.average(track.k, weights=dk ** -2, returned=True)
         dk = np.sqrt(sum ** -1)
@@ -63,6 +92,19 @@ def kappa_pt(lst: [Data]) -> pd.DataFrame:
 
 
 def ph_energy(lst: [Data]) -> pd.DataFrame:
+    """Calculate the data for pulse height-energy calibration from a list of 'Data' objects
+        note that this function is for particles with momentum that sustain: mass << momentum
+
+        Parameters
+        ----------
+        lst
+            each 'Data' object contain data of the same particle with different momentum
+
+        Returns
+        -------
+        df
+            DataFrame with the columns ['ph', 'dph', 'e', 'de']
+        """
     # for particles with mass << momentum
     rows = []
     for data in lst:
@@ -79,6 +121,19 @@ def ph_energy(lst: [Data]) -> pd.DataFrame:
 
 
 def calibrate_pt(data: {str: Data}, plot_it=False) -> dict:
+    """Fitting data from 'kappa_pt' function
+
+    Parameters
+    ----------
+    data:
+        dictionary received from
+    plot_it: bool
+        whether to plot the fit or not
+
+    Returns
+    -------
+        dict of the fitted parameters for each particle {particle name: (scipy.odr.Output, chi^2_reduced , p-value)}
+    """
     if plot_it:
         _, fit = plt.subplots(subplot_kw=dict(title=f'Kappa - Momentum Calibration',
                                               ylabel=r'$\kappa[cm^{-1}]$',
@@ -123,6 +178,19 @@ def calibrate_pt(data: {str: Data}, plot_it=False) -> dict:
 
 
 def calibrate_energy(data: {str: Data}, plot_it=False) -> dict:
+    """Fitting data from function 'ph_energy'
+
+        Parameters
+        ----------
+        data:
+            dictionary received from
+        plot_it: bool
+            whether to plot the fit or not
+
+        Returns
+        -------
+            dict of the fitted parameters for each particle {particle name: (scipy.odr.Output, chi^2_reduced , p-value)}
+        """
     if plot_it:
         _, fit = plt.subplots(subplot_kw=dict(title=f'Pulse Height - Energy Calibration',
                                               ylabel=r'$E[GeV]$', xlabel=r'$ph$'))
@@ -167,15 +235,16 @@ def best_fit(outs):
 
 if __name__ == '__main__':
     filename = 'cal_func.pickle'
-    if filename not in os.listdir('data'):
-        path = os.path.join('data', filename)
-        data = collect_data()
-        out_pt = calibrate_pt(data)
-        out_e = calibrate_energy(data)
-        particle_pt, best_pt = best_fit(out_pt)
-        print(f'Kappa-Momentum Calibration: {particle_pt} with Chi^2_red={best_pt[1]:0.2g} P-value={best_pt[2]:0.2g}')
-        particle_e, best_e = best_fit(out_e)
-        print(f'Pulse Height-Energy Calibration: {particle_e} with Chi^2_red={best_e[1]:0.2g} P-value={best_e[2]:0.2g}')
-        cal = {'momentum': (best_pt[0].beta, best_pt[0].sd_beta), 'energy': (best_e[0].beta, best_e[0].sd_beta)}
-        with open(path, 'wb') as f:
-            pickle.dump(cal, f, pickle.HIGHEST_PROTOCOL)
+    particles = {'electron': DecayMode(0, 1, 1), 'muon': DecayMode(0, 1, 1), 'photon': DecayMode(0, 0, 1)}
+    data = collect_data(particles, [i for i in range(10, 110, 10)])
+
+    out_pt = calibrate_pt(data)
+    out_e = calibrate_energy(data)
+    particle_pt, best_pt = best_fit(out_pt)
+    print(f'Kappa-Momentum Calibration: {particle_pt} with Chi^2_red={best_pt[1]:0.2g} P-value={best_pt[2]:0.2g}')
+    particle_e, best_e = best_fit(out_e)
+    print(f'Pulse Height-Energy Calibration: {particle_e} with Chi^2_red={best_e[1]:0.2g} P-value={best_e[2]:0.2g}')
+
+    cal = {'momentum': (best_pt[0].beta, best_pt[0].sd_beta), 'energy': (best_e[0].beta, best_e[0].sd_beta)}
+    with open(os.path.join('data', filename), 'wb') as f:
+        pickle.dump(cal, f, pickle.HIGHEST_PROTOCOL)

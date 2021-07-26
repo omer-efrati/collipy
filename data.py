@@ -5,7 +5,7 @@ import pickle
 from collider import Collider, Data, DecayMode
 
 
-logging.config.fileConfig('logging.conf')
+logging.config.fileConfig('log/logging.conf')
 logger = logging.getLogger('dataLog')
 user = input('username: \n')
 password = input('password: \n')

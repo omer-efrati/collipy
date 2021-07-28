@@ -1,13 +1,11 @@
-import logging
 import logging.config
 import os
 import numpy as np
 import pandas as pd
 from collider import Collider, Data, DecayMode
-from particles import k_s, pi_minus, pi_plus
+from simulator.particles import pi_minus, pi_plus
 from calibration import Cal
 import matplotlib.pyplot as plt
-from scipy.stats import zscore
 
 logging.config.fileConfig('log/logging.conf')
 logger = logging.getLogger('kShortLog')

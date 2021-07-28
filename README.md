@@ -1,7 +1,8 @@
 # Collider Simulator
 Collider simulator for TAU Physics Laboratory C Course
 
-## List of available particels
+## List of available particles
+
 * photon
 * electron
 * positron

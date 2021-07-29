@@ -24,3 +24,15 @@ Collider simulator for TAU Physics Laboratory C Course
 * sigma-plus
 * sigma-minus
 * sigma-0
+
+## Important things to consider
+
+### Randomness is (very) limited
+There is no way to change the random seed at the remote software.
+As a consequence, same injections specifications for distinct accelerators, will result the same results.
+With that said, running this package concurrently is supported and encouraged for some cases.
+
+Examples for cases when you can use threading:
+* When injecting multiple different particles
+* When injecting same particle with different momentum
+* etc.

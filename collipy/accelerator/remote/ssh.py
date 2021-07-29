@@ -1,8 +1,8 @@
 """
-Nacre
-=====
+SSH Communications
+==================
 
-Remote server shell access manager
+Remote secured shell access manager
 
 Notes
 -----
@@ -19,11 +19,11 @@ class ShellHandler:
     """
     Basic interactive shell handler
     """
-    def __init__(self, host: str, port: int, user: str, password: str):
+    def __init__(self, host: str, port: int, username: str, password: str):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         print('Connecting host...')
-        self.ssh.connect(hostname=host, port=port, username=user, password=password)
+        self.ssh.connect(hostname=host, port=port, username=username, password=password)
         print('Connection established')
         self.channel = self.ssh.invoke_shell()
         self.stdin = self.channel.makefile('wb')
@@ -59,10 +59,10 @@ class ShellHandler:
 class GSH(ShellHandler):
     """Geant Shell Handler"""
 
-    def __init__(self, user: str, password: str, alpha: float):
+    def __init__(self, username: str, password: str, alpha: float):
         host = "hpcssd.tau.ac.il"
         port = 22
-        super().__init__(host, port, user, password)
+        super().__init__(host, port, username, password)
         print('Initializing simulator')
         self._start_gimel(alpha)
         print('Simulator is ready!')

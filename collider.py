@@ -35,6 +35,11 @@ class DecayMode:
         else:
             raise ValueError("Expected arguments to be either int or DataFrame type")
 
+    def __eq__(self, other):
+        if self.mode == self.other:
+            return True
+        return False
+
     def __le__(self, other):
         """Use <= as if 'self' mode contains 'other' mode"""
         if self.mode[0] == -1 or self.mode[0] == other.mode[0]:
@@ -219,6 +224,5 @@ class Collider:
                         data.append(inj)
         print()
         data = Data(alpha, particle, momentum, data, mode, threshold, cnt, m)
-        logger.info(f'Finished injecting {particle} {momentum} GeV')
         return data
 

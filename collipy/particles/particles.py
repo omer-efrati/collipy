@@ -126,6 +126,7 @@ class Particle:
 
 
 def create_particles_dic():
+    """feel free to add particles to particles.csv file if necessary"""
     df = pd.read_csv(os.path.join(os.path.dirname(os.path.normpath(__file__)), 'data', 'particles.csv'))
     dic = dict()
     for _, row in df.iterrows():

@@ -66,6 +66,7 @@ def _injection_parse(injection: list) -> tuple[pd.DataFrame, pd.DataFrame, pd.Da
                 row = [float(t.replace('+/-', '')) for t in row][1:8]
                 row[1] += 10  # x_0 is at -10cm at the simulator
                 ecal = ecal.append(pd.Series(row, index=ecal.columns), ignore_index=True)
+                ecal.insert(1, 'dph', 0.05 * ecal['ph'])  # pulse height uncertainty was given by instructor: 5%
             except (ValueError, IndexError):
                 return None
             i += 1

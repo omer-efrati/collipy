@@ -3,6 +3,7 @@ Helper module for collipy package
 """
 import numpy as np
 from scipy import stats, odr
+from timeit import default_timer as timer
 
 
 def fit(x, y, sy, func, beta_initial=None, sx=None) -> tuple[odr.Output, float, float]:
@@ -110,3 +111,15 @@ def n_sigma(x: tuple[float, float], y: tuple[float, float]) -> float:
     if denom == 0:
         return np.inf
     return nom / denom
+
+
+def progress_bar(now: int, required: int, start_time=None, note=''):
+    fill = f'[{int(30 * now / required) * "#" + (30 - int(30 * now / required)) * "-"}]'
+    percent = f'{int(100 * now / required)}% completed'
+    time = f'{(timer() - start_time): 0.3g} secs' if start_time else ''
+    bar = f'{fill} {percent}'
+    if time:
+        bar += f' {time}'
+    if note:
+        bar += f' {note}'
+    print(f'\r{bar}', end='', flush=True)

@@ -12,7 +12,7 @@ This module supports threading
 import re
 import threading
 import paramiko
-from .geantparser import parse
+from . import geantparser
 
 
 class ShellHandler:
@@ -88,4 +88,4 @@ class GSH(ShellHandler):
     def inject(self, particle: str, momentum: float, times: int):
         cmd = f'{particle} {momentum}\n' + times * 'inject\n'
         txt = self.execute(cmd, 'odeo47', ' *** Unknown command: odeo47\r\n')
-        return parse(txt)
+        return geantparser.parse(txt)

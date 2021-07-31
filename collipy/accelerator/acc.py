@@ -3,10 +3,11 @@ Accelerator
 ===========
 
 """
-import remote
+from . import ssh
 from collections import Counter
 from ..injection import DecayMode, Injection, InjectionCollection
 from timeit import default_timer as timer
+from ..helper import progress_bar
 
 
 class Accelerator:
@@ -27,7 +28,7 @@ class Accelerator:
 
     def __init__(self, username: str, password: str, alpha=1):
         self.alpha = alpha
-        self._geant = remote.GSH(username, password, alpha)
+        self._geant = ssh.GSH(username, password, alpha)
 
     @property
     def alpha(self):
@@ -82,16 +83,14 @@ class Accelerator:
             # counts the total number of events
             cnt['total'] += len(lst)
             for vertex, track, ecal in lst:
-                # progress bar - if you want to use it, add print() after the while loop
-                print(f'\r{particle} {momentum:0.2g} GeV '
-                      f'[{int(30 * len(data[:n]) / n) * "#" + (30 - int(30 * len(data[:n]) / n)) * "-"}] '
-                      f'{int(100 * len(data[:n]) / n)}% completed '
-                      f'{(timer() - start) / 60: 0.2g} mins', end='', flush=True)
+                progress_bar(len(data[:n]), n, start)
                 injection = Injection(vertex, track, ecal)
                 # counts the number of events with certain decay mode
                 cnt[injection.mode.tup] += 1
                 if mode <= injection.mode:  # 'injection.mode' contains 'mode'
                     if injection.max_rel <= threshold:
                         data.append(injection)
+            # updating number of injections per loop for higher efficiency
+            times = int((n - len(data)) / (len(data) / cnt['total'])) if 0 < len(data) else times
         print()
         return data, cnt

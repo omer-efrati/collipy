@@ -1,4 +1,5 @@
-# Collider Simulator
+# ColliPy
+
 Collider simulator for TAU Physics Laboratory C Course
 
 ## List of available particles

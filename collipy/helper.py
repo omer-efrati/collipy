@@ -1,9 +1,11 @@
 """
 Helper module for collipy package
 """
+import time
 import numpy as np
 from scipy import stats, odr
 from timeit import default_timer as timer
+import functools
 
 
 def fit(x, y, sy, func, beta_initial=None, sx=None) -> tuple[odr.Output, float, float]:
@@ -123,3 +125,28 @@ def progress_bar(now: int, required: int, start_time=None, note=''):
     if note:
         bar += f' {note}'
     print(f'\r{bar}', end='', flush=True)
+
+
+class Timer:
+
+    def __enter__(self):
+        self.seconds = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.seconds = time.perf_counter() - self.seconds
+
+    def __repr__(self):
+        return f'{self.seconds}'
+
+
+def function_timer(function):
+    """Print the running time of the decorated function"""
+    @functools.wraps(function)
+    def function_timer_wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = function(*args, **kwargs)
+        end = time.perf_counter()
+        print(f'Finished `{function.__name__}` run in {end - start: 0.5g}s')
+        return result
+    return function_timer_wrapper

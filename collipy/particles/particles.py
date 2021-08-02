@@ -11,8 +11,8 @@ References
     https://doi.org/10.1093/ptep/ptaa104
 
 """
-
-import os
+import importlib.resources
+from .. import resources
 import numpy as np
 import pandas as pd
 from scipy.constants import hbar, eV, c, giga, centi
@@ -127,13 +127,11 @@ class Particle:
 
 def create_particles_dic():
     """feel free to add particles to particles.csv file if necessary"""
-    df = pd.read_csv(os.path.join(os.path.dirname(os.path.normpath(__file__)), 'data', 'particles.csv'))
+    with importlib.resources.open_text(resources, 'particles.csv') as path:
+        df = pd.read_csv(path)
     dic = dict()
     for _, row in df.iterrows():
         dic[row['name']] = Particle(row['name'],
                                     (row['mass[MeV]'], row['sd_mass[MeV]']),
                                     (row['tau[s]'], row['sd_tau[s]']))
     return dic
-
-
-pdg = create_particles_dic()

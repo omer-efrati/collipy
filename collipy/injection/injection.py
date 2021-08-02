@@ -1,13 +1,12 @@
-import os
 import pickle
+from pathlib import Path
 from collections import Counter
-import numpy as np
 import pandas as pd
 from .properties import DecayMode, calc_max_rel
 
 
 class Injection:
-
+    """Injection information and properties (for convenience and readability)"""
     def __init__(self, vertex: pd.DataFrame, track: pd.DataFrame, ecal: pd.DataFrame):
         self.vertex = vertex
         self.track = track
@@ -51,30 +50,16 @@ class InjectionCollection:
         self.threshold = threshold
         self.cnt = cnt
 
-    def __add__(self, other):
-        if self.particle == other.particle:
-            if self.momentum == other.momentum:
-                if self.alpha == other.alpha:
-                    if self.mode == other.mode:
-                        particle = self.particle
-                        momentum = self.momentum
-                        alpha = self.alpha
-                        mode = self.mode.tup
-                        threshold = max(self.threshold, other.threshold)
-                        cnt = self.cnt + other.cnt
-                        data = self.data + other.data
-                        return InjectionCollection(alpha, particle, momentum, data, mode, threshold, cnt)
-        return None
-
-
     @classmethod
     def load(cls, path: str):
+        path = Path(path)
         with open(path, 'rb') as f:
             # The protocol version used is detected automatically, so we do not have to specify it.
             data = pickle.load(f)
         return data
 
     def get_df(self):
+        """Create a DataFrame object representing `self` injections"""
         vframes, tframes, eframes = [], [], []
         for injection in self.data:
             vframes.append(injection.vertex)
@@ -85,7 +70,20 @@ class InjectionCollection:
         e = pd.concat(eframes, keys=pd.RangeIndex(len(eframes)))
         return v, t, e
 
-    def dump(self, path: str):
+    def dump(self, path=None):
+        """
+        Pickling `InjectionCollection` object
+
+        Parameters
+        ----------
+        path : str, optional
+            if path is not given, saves the file in same dir of your module
+
+        """
+        if path is None:
+            path = Path(f'{self.particle}_{self.momentum[0]}.pickle')
+        else:
+            path = Path(path)
         with open(path, 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)

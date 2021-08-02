@@ -4,7 +4,6 @@ Injection Properties
 
 import numpy as np
 import pandas as pd
-from collections import namedtuple
 
 
 class DecayMode:
@@ -26,15 +25,12 @@ class DecayMode:
         (number of vertexes, number of tracks, number of ecal clusters)
 
     """
-
-    Tup = namedtuple('DecayMode', ['nvertex', 'ntrack', 'necal'])
-
     def __init__(self, vertex, track, ecal):
         v = len(vertex) if type(vertex) == pd.DataFrame else vertex
         t = len(track) if type(track) == pd.DataFrame else track
         e = len(ecal) if type(ecal) == pd.DataFrame else ecal
         if type(v) == type(t) == type(e) == int:
-            self.tup = DecayMode.Tup(v, t, e)
+            self.tup = v, t, e
         else:
             raise ValueError("Expected arguments to be either int, DataFrame or None type")
 
@@ -45,9 +41,9 @@ class DecayMode:
 
     def __le__(self, other):
         """Use <= as if 'self' mode contains 'other' mode"""
-        if self.tup.nvertex is None or self.tup.nvertex == other.tup.nvertex:
-            if self.tup.ntrack is None or self.tup.ntrack == other.tup.ntrack:
-                if self.tup.necal is None or self.tup.necal == other.tup.necal:
+        if self.nvertex is None or self.nvertex == other.nvertex:
+            if self.ntrack is None or self.ntrack == other.ntrack:
+                if self.necal is None or self.necal == other.necal:
                     return True
         return False
 
@@ -55,10 +51,25 @@ class DecayMode:
         return other.__le__(self)
 
     def __repr__(self):
-        one = self.tup.nvertex if self.tup.nvertex is not None else '?'
-        two = self.tup.ntrack if self.tup.ntrack is not None else '?'
-        three = self.tup.necal if self.tup.necal is not None else '?'
+        one = self.nvertex if self.nvertex is not None else '?'
+        two = self.ntrack if self.ntrack is not None else '?'
+        three = self.necal if self.necal is not None else '?'
         return f'({one}, {two}, {three})'
+
+    def __hash__(self):
+        return hash(self.tup)
+
+    @property
+    def nvertex(self):
+        return self.tup[0]
+
+    @property
+    def ntrack(self):
+        return self.tup[1]
+
+    @property
+    def necal(self):
+        return self.tup[2]
 
 
 def calc_max_rel(vertex: pd.DataFrame, track: pd.DataFrame, ecal: pd.DataFrame) -> float:

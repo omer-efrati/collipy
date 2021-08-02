@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from collider import Collider, Data, DecayMode
 from simulator.particles import pi_minus, pi_plus
-from examples.calibration import Cal
+from example.calibration import Cal
 import matplotlib.pyplot as plt
 
 logging.config.fileConfig('../log/logging.conf')
@@ -15,8 +15,8 @@ logger = logging.getLogger('kShortLog')
 
 particle = 'k-short'
 filename = f'{particle}.pickle'
-path = os.path.join('../data', filename)
-if filename not in os.listdir('../data'):
+path = os.path.join('../example/data', filename)
+if filename not in os.listdir('../example/data'):
     user = input('username: \n')
     password = input('password: \n')
     n = 1000

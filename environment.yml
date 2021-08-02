@@ -1,4 +1,4 @@
-name: collide
+name: collipy
 channels:
   - defaults
   - conda-forge
@@ -9,4 +9,6 @@ dependencies:
   - pandas
   - matplotlib
   - paramiko
+  - sphinx
   - numpydoc
+  - pydata-sphinx-theme

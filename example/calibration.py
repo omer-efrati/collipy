@@ -23,7 +23,7 @@ def collect():
 
 if __name__ == '__main__':
     # path to data file
-    path = Path('../data/calibration.pickle')
+    path = Path('data/calibration.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:

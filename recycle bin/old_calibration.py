@@ -38,8 +38,8 @@ def collect_data(particles: {str: DecayMode}, momenta: list, filename='cal.pickl
         res
             {particle name: 'Data' object for each momentum from 'momenta'}
     """
-    path = os.path.join('../data', filename)
-    if filename not in os.listdir('../data'):
+    path = os.path.join('../example/data', filename)
+    if filename not in os.listdir('../example/data'):
         user = input('username: \n')
         password = input('password: \n')
         data = {key: [] for key in particles.keys()}
@@ -238,9 +238,9 @@ class Cal:
         DO NOT USE THIS CLASS BEFORE CALIBRATING THE COLLIDER"""
     def __init__(self, alpha: float):
         filename = 'cal_func.pickle'
-        if filename not in os.listdir('../data'):
+        if filename not in os.listdir('../example/data'):
             raise Exception("Calibration is needed before creating a 'Cal' object")
-        with open(os.path.join('../data', filename), 'rb') as f:
+        with open(os.path.join('../example/data', filename), 'rb') as f:
             params = pickle.load(f)
         self.alpha = alpha
         self._momentum_beta = params['momentum']
@@ -316,6 +316,6 @@ if __name__ == '__main__':
     print(f'Pulse Height-Energy Calibration: {particle_e} with Chi^2_red={best_e[1]:0.2g} P-value={best_e[2]:0.2g}')
 
     cal = {'momentum': (best_pt[0].beta, best_pt[0].sd_beta), 'energy': (best_e[0].beta, best_e[0].sd_beta)}
-    with open(os.path.join('../data', filename), 'wb') as f:
+    with open(os.path.join('../example/data', filename), 'wb') as f:
         pickle.dump(cal, f, pickle.HIGHEST_PROTOCOL)
 

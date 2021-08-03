@@ -118,26 +118,14 @@ def n_sigma(x: tuple[float, float], y: tuple[float, float]) -> float:
 def progress_bar(now: int, required: int, start_time=None, note=''):
     fill = f'[{int(30 * now / required) * "#" + (30 - int(30 * now / required)) * "-"}]'
     percent = f'{int(100 * now / required)}% completed'
-    time = f'{(timer() - start_time): 0.3g} secs' if start_time else ''
+    dt = (timer() - start_time)
+    time = f'{dt/60:0.3g} minutes passed ETC {(required/now - 1) * dt/60:0.3g} minutes' if start_time and now != 0 else ''
     bar = f'{fill} {percent}'
     if time:
         bar += f' {time}'
     if note:
         bar += f' {note}'
     print(f'\r{bar}', end='', flush=True)
-
-
-class Timer:
-
-    def __enter__(self):
-        self.seconds = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.seconds = time.perf_counter() - self.seconds
-
-    def __repr__(self):
-        return f'{self.seconds}'
 
 
 def function_timer(function):

@@ -56,6 +56,7 @@ class Accelerator:
             self._geant = ssh.GSH(username, password, alpha)
         except AuthenticationException as e:
             if self.creds_path.is_file():
+                # delete credentials file if authentication failed
                 self.creds_path.unlink()
             raise e
 
@@ -108,7 +109,7 @@ class Accelerator:
         data = []
         cnt = Counter()
         upper_bound = 0
-        # Arbitrary lower bound for number of injections per loop
+        # `times` empirically chosen to be a good injections/loop ratio
         times = 40
         while len(data) < n:
             lst = self._geant.inject(particle, momentum, times)
@@ -123,9 +124,7 @@ class Accelerator:
                         if cond(injection):
                             data.append(injection)
                             upper_bound = injection.max_rel if upper_bound < injection.max_rel else upper_bound
-                progress_bar(len(data[:n]), n, start, f'{times} injection/loop')
-            # updating number of injections per loop for higher efficiency
-            # times = int((n - len(data)) / (len(data) / cnt['total'])) if 0 < len(data) else times
+                progress_bar(len(data[:n]), n, start, f'{len(data)} injections collected')
         print()
         data = InjectionCollection(self.alpha, particle, momentum, data, mode, upper_bound, cnt)
         return data

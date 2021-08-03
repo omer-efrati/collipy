@@ -11,9 +11,9 @@ def collect():
     alpha = 10
     particle = 'k-short'
     momentum = 3.7
-    n = 5
+    n = 200
     mode = cp.DecayMode(1, 2, 0)
-    threshold = 0.2
+    threshold = 0.15
     ac = cp.Accelerator(alpha)
 
     def cond(inj):
@@ -24,7 +24,6 @@ def collect():
             return False
 
     data = ac.collect(particle, momentum, n, mode, threshold, cond)
-    data.dump(True)
     return data
 
 

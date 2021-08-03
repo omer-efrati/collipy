@@ -1,4 +1,4 @@
-# ColliPy
+# <img alt="ColliPy" src="/logo/long.jpeg" height="150">
 
 Collider simulator for TAU Physics Laboratory C Course
 

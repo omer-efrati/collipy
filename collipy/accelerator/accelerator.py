@@ -161,4 +161,7 @@ class Accelerator:
                                    np.repeat(particles, len(momenta)),
                                    np.tile(momenta, len(particles)),
                                    np.repeat(modes, len(momenta)))
-        return results
+        data = {key: [] for key in particles}
+        for ic in results:
+            data[ic.particle].append(ic)
+        return data

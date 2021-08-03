@@ -50,6 +50,9 @@ class InjectionCollection:
         self.threshold = threshold
         self.cnt = cnt
 
+    def __repr__(self):
+        return f'({self.particle}, {self.momentum[0]}, {len(self.data)})'
+
     @classmethod
     def load(cls, path: str):
         path = Path(path)

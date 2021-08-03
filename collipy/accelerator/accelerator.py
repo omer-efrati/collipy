@@ -130,7 +130,8 @@ class Accelerator:
                 injection = Injection(vertex, track, ecal)
                 # counts the number of events with certain decay mode
                 cnt[injection.mode.tup] += 1
-                if mode <= injection.mode:  # 'injection.mode' contains 'mode'
+                # 'injection.mode' contains 'mode'
+                if mode <= injection.mode:
                     if injection.max_rel <= threshold:
                         if cond(injection):
                             data.append(injection)

@@ -81,7 +81,7 @@ class Accelerator:
             res.append(Injection(tmp[0], tmp[1], tmp[2]))
         return res
 
-    def collect(self, particle, momentum, n, mode, threshold, cond=lambda inj: True):
+    def collect(self, particle, momentum, n, mode, threshold, cond=lambda _: True):
         """
         Collecting injections that meet the threshold and decay mode
 
@@ -104,6 +104,13 @@ class Accelerator:
         -------
             data : InjectionCollection
 
+        Notes
+        -----
+        Exception may raise during injections because of connection problems we can't deal with.
+        Restarting the connection is not possible because of the randomness problem mentioned at the README.md file
+        Some data collection may take several hours, to prevent loss of precious information if an exception will raise
+        because of connection problems, the data collected until that exception will be returned
+
         """
         start = timer()
         data = []
@@ -112,7 +119,11 @@ class Accelerator:
         # `times` empirically chosen to be a good injections/loop ratio
         times = 40
         while len(data) < n:
-            lst = self._geant.inject(particle, momentum, times)
+            try:
+                lst = self._geant.inject(particle, momentum, times)
+            # cutting loses, if any exception raise from server, return whatever data manged to collect
+            except Exception:
+                break
             # counts the total number of events
             cnt['total'] += len(lst)
             for vertex, track, ecal in lst:
@@ -129,7 +140,7 @@ class Accelerator:
         data = InjectionCollection(self.alpha, particle, momentum, data, mode, upper_bound, cnt)
         return data
 
-    def acollect(self, particles, modes, momenta, n, threshold, cond=lambda inj: True):
+    def collect_multithread(self, particles, modes, momenta, n, threshold, cond=lambda _: True):
         """
         running `collect` function concurrently for different particles and/or momenta
 

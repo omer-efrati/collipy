@@ -24,7 +24,7 @@ def collect():
     n = 200
     threshold = 0.05
     ac = cp.Accelerator(alpha)
-    return ac.acollect(particles, modes, momenta, n, threshold)
+    return ac.collect_multithread(particles, modes, momenta, n, threshold)
 
 
 def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:

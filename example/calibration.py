@@ -3,7 +3,6 @@ Calibration data collection and analysis
 """
 import pickle
 from pathlib import Path
-import concurrent.futures
 import collipy as cp
 import numpy as np
 import pandas as pd
@@ -25,7 +24,11 @@ def collect():
     n = 200
     threshold = 0.05
     ac = cp.Accelerator(alpha)
-    return ac.collect_multithread(particles, modes, momenta, n, threshold)
+    data = {key: [] for key in particles}
+    for particle, mode in zip(particles, modes):
+        for momentum in momenta:
+            data[particle].append(ac.collect(particle, momentum, n, mode, threshold))
+    return data
 
 
 def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
@@ -45,19 +48,18 @@ def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
         DataFrame with the columns ['k', 'dk', 'pt', 'dpt']
     """
     rows = []
-    for data in lst:
-        track = data.track
+    for ic in lst:
+        track = ic.get_df()[1]
         # adding statistical uncertainty to the measurements and calculating the mean
         dk = np.sqrt(track.dk ** 2 + np.var(track.k, ddof=1))
         k, sum = np.average(track.k, weights=dk ** -2, returned=True)
         dk = np.sqrt(sum ** -1)
         theta = np.arctan(track.tan_theta)
         dtheta = track.dtan_theta / (1 + track.tan_theta ** 2)
-        p, dp = data.momentum[0] * np.ones_like(track.tan_theta), data.momentum[1] * np.ones_like(track.tan_theta)
+        p, dp = ic.momentum[0] * np.ones_like(track.tan_theta), ic.momentum[1] * np.ones_like(track.tan_theta)
         pt = p * np.cos(theta)
         dpt = pt * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
-        dpt = np.sqrt(dpt ** 2 + np.var(pt, ddof=1))
-        # `theta` << 1 -> cos(`theta`) ~ 1
+        dpt = np.sqrt(dpt ** 2)
         pt, sum = np.average(pt, weights=dpt ** -2, returned=True)
         dpt = np.sqrt(sum ** -1)
         rows.append([k, dk, pt, dpt])
@@ -87,17 +89,18 @@ def ph_energy(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
 
     """
     rows = []
-    for data in lst:
-        ecal = data.ecal
+    for ic in lst:
+        ecal = ic.get_df()[2]
         dph = np.sqrt(ecal.dph ** 2 + np.var(ecal.ph, ddof=1))
         ph, sum = np.average(ecal.ph, weights=dph ** -2, returned=True)
         dph = np.sqrt(sum ** -1)
         de = data.momentum[1] * np.ones_like(ecal.ph)
         e, sum = np.average(data.momentum[0] * np.ones_like(ecal.ph), weights=de ** -2, returned=True)
         de = np.sqrt(sum ** -1)
-        rows.append([ph, dph, data.momentum[0], de])  # for momenta that meet mass<<momentum
+        rows.append([ph, dph, e, de])  # for momenta that meet mass<<momentum
     df = pd.DataFrame(rows, columns=['ph', 'dph', 'e', 'de'])
     return df
+
 
 def calibrate_pt(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
     """Fitting data from 'kappa_pt' function
@@ -128,7 +131,7 @@ def calibrate_pt(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
         y, dy = df.k, df.dk
         x, dx = 1 / df.pt, df.dpt / df.pt ** 2
         beta_guess = [1.3 / B_FACTOR, 0]
-        out, chi, p_value = cp.fit(x, dx, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess)
+        out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
         if plot_it:
             fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o', label=f'{particle.title()} Data')
@@ -181,7 +184,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
         y, dy = df.e, df.de
         x, dx = df.ph, df.dph
         beta_guess = [1, 1]
-        out, chi, p_value = cp.fit(x, dx, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess)
+        out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
         if plot_it:
             fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o', label=f'{particle.title()} Data')
@@ -204,7 +207,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
 
 if __name__ == '__main__':
     # loading/creating data
-    path = Path('data/calibration.pickle')
+    path = Path('data/calibration_new.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:
@@ -214,5 +217,19 @@ if __name__ == '__main__':
         with open(path, 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-    data: list[cp.InjectionCollection]
+    out_momentum = calibrate_pt(data)
+    out_eneregy = calibrate_energy(data)
 
+
+# for i in range(len(data['electron'])):
+#     df = data['electron'][i].get_df()
+#     track = df[1]
+#     dk = track.dk
+#     k = track.k
+#     theta = np.arctan(track.tan_theta)
+#     dtheta = track.dtan_theta / (1 + track.tan_theta ** 2)
+#     p, dp = data['electron'][i].momentum[0] * np.ones_like(track.tan_theta), data['electron'][i].momentum[1] * np.ones_like(track.tan_theta)
+#     pt = p * np.cos(theta)
+#     dpt = pt * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
+#     plt.scatter(1/pt, k)
+#     plt.plot(np.mean(1/pt), np.)

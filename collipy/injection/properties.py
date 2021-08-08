@@ -29,7 +29,7 @@ class DecayMode:
         v = len(vertex) if type(vertex) == pd.DataFrame else vertex
         t = len(track) if type(track) == pd.DataFrame else track
         e = len(ecal) if type(ecal) == pd.DataFrame else ecal
-        if type(v) == type(t) == type(e) == int:
+        if isinstance(v, (int, type(None))) and isinstance(t, (int, type(None))) and isinstance(e, (int, type(None))):
             self.tup = v, t, e
         else:
             raise ValueError("Expected arguments to be either int, DataFrame or None type")

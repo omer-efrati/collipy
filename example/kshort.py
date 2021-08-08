@@ -4,6 +4,7 @@ K-short data collection and analysis
 import pickle
 from pathlib import Path
 import collipy as cp
+import numpy as np
 
 
 @cp.function_timer
@@ -25,6 +26,22 @@ def collect():
 
     data = ac.collect(particle, momentum, n, mode, threshold, cond)
     return data
+
+
+def pt(k, sd_k):
+    a, b = [1.94104212e-03, 2.16085896e-07]
+    sd_a, sd_b = [6.58324160e-06, 2.53692179e-07]
+    res = a / (k - b)
+    sd_res = np.abs(res) * np.sqrt((sd_a/a)**2 + (sd_k/(k-b))**2 + (sd_b/(k-b))**2)
+    return res, sd_res
+
+
+def e(ph, sd_ph):
+    a, b = [48.53818409, -20.31709717]
+    sd_a, sd_b = [0.02454786, 0.55644483]
+    res = (ph - b) / a
+    sd_res = np.sqrt((sd_ph/a)**2 + (res*sd_a/a)**2 + (sd_b/a)**2)
+    return res, sd_res
 
 
 if __name__ == '__main__':

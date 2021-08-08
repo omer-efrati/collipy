@@ -91,12 +91,12 @@ def ph_energy(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
     rows = []
     for ic in lst:
         ecal = ic.get_df()[2]
-        dph = np.sqrt(ecal.dph ** 2 + np.var(ecal.ph, ddof=1))
-        ph, sum = np.average(ecal.ph, weights=dph ** -2, returned=True)
-        dph = np.sqrt(sum ** -1)
-        de = data.momentum[1] * np.ones_like(ecal.ph)
-        e, sum = np.average(data.momentum[0] * np.ones_like(ecal.ph), weights=de ** -2, returned=True)
-        de = np.sqrt(sum ** -1)
+        n = len(ecal.ph)
+        # no pulse height uncertainty given from software, estimated by the pulse height variance
+        dph = np.std(ecal.ph, ddof=1) / np.sqrt(n)
+        ph = np.mean(ecal.ph)
+        e = ic.momentum[0]
+        de = ic.momentum[1] / np.sqrt(n)
         rows.append([ph, dph, e, de])  # for momenta that meet mass<<momentum
     df = pd.DataFrame(rows, columns=['ph', 'dph', 'e', 'de'])
     return df
@@ -181,8 +181,8 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
     out_dic = {}
     for particle in ['electron', 'photon']:
         df = ph_energy(data[particle])
-        y, dy = df.e, df.de
-        x, dx = df.ph, df.dph
+        x, dx = df.e, df.de
+        y, dy = df.ph, df.dph
         beta_guess = [1, 1]
         out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
@@ -205,9 +205,19 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
     return out_dic
 
 
+def best_fit(outs):
+    """Choosing best fit"""
+    best = 0
+    for key, (_, _, p_value) in outs.items():
+        if abs(p_value-0.5) < abs(best-0.5):
+            best_key = key
+            best = p_value
+    return outs[best_key][0]
+
+
 if __name__ == '__main__':
     # loading/creating data
-    path = Path('data/calibration_new.pickle')
+    path = Path('data/calibration.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:
@@ -217,19 +227,5 @@ if __name__ == '__main__':
         with open(path, 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-    out_momentum = calibrate_pt(data)
-    out_eneregy = calibrate_energy(data)
-
-
-# for i in range(len(data['electron'])):
-#     df = data['electron'][i].get_df()
-#     track = df[1]
-#     dk = track.dk
-#     k = track.k
-#     theta = np.arctan(track.tan_theta)
-#     dtheta = track.dtan_theta / (1 + track.tan_theta ** 2)
-#     p, dp = data['electron'][i].momentum[0] * np.ones_like(track.tan_theta), data['electron'][i].momentum[1] * np.ones_like(track.tan_theta)
-#     pt = p * np.cos(theta)
-#     dpt = pt * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
-#     plt.scatter(1/pt, k)
-#     plt.plot(np.mean(1/pt), np.)
+    out_momentum = best_fit(calibrate_pt(data))
+    out_eneregy = best_fit(calibrate_energy(data))

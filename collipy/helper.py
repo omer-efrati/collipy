@@ -86,6 +86,15 @@ def gof(x, y, sy, func, beta, sx=None) -> tuple[float, float]:
     return chisq_red, p_value
 
 
+def breit_wigner(beta, x):
+    """
+                        b_1
+    ------------------------------------    +   b_0
+    (x**2 - b_2**2)**2 + b_2**2 * b_3**2
+    """
+    return beta[1] / ((x**2 - beta[2]**2)**2 + beta[2]**2 * beta[3]**2) + beta[0]
+
+
 def n_sigma(x: tuple[float, float], y: tuple[float, float]) -> float:
     """
     Compute the N_sigma value between `x` and `y`

@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 
 @cp.function_timer
 def collect():
-    alpha = 10
+    alpha = 8
     particle = 'k-short'
     momentum = 3.7
-    n = 200
-    mode = cp.DecayMode(1, 2, 0)
+    n = 5
+    mode = cp.DecayMode(1, 2, None)
     threshold = 0.15
     ac = cp.Accelerator(alpha)
 
@@ -70,7 +70,7 @@ def get_phi(vertex: pd.DataFrame) -> (np.ndarray, np.ndarray):
 
 
 if __name__ == '__main__':
-    path = Path('data/kshort.pickle')
+    path = Path('data/kshort_alpha.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:

@@ -58,8 +58,7 @@ def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
         dtheta = track.dtan_theta / (1 + track.tan_theta ** 2)
         p, dp = ic.momentum[0] * np.ones_like(track.tan_theta), ic.momentum[1] * np.ones_like(track.tan_theta)
         pt = p * np.cos(theta)
-        dpt = pt * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
-        dpt = np.sqrt(dpt ** 2)
+        dpt = np.abs(pt) * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
         pt, sum = np.average(pt, weights=dpt ** -2, returned=True)
         dpt = np.sqrt(sum ** -1)
         rows.append([k, dk, pt, dpt])
@@ -117,26 +116,23 @@ def calibrate_pt(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
         dict of the fitted parameters for each particle {particle name: (scipy.odr.Output, chi^2_reduced , p-value)}
     """
     if plot_it:
-        _, fit = plt.subplots(subplot_kw=dict(title=f'Kappa - Momentum Calibration',
+        _, fit = plt.subplots(subplot_kw=dict(title='Curvature - Transverse Momentum Calibration',
                                               ylabel=r'$\kappa[cm^{-1}]$',
                                               xlabel=r'$\frac{1}{p cos(\theta)}[GeV^{-1}]$'))
-        _, res = plt.subplots(subplot_kw=dict(title=f'Kappa - Momentum Calibration Residuals Plot',
-                                              ylabel=r'$f(p_i, \theta_i) - \kappa_i$',
-                                              xlabel=r'$\frac{1}{p}[GeV^{-1}]$'))
-    out_dic = {}
-    b = []
-    db = []
+        _, res = plt.subplots(subplot_kw=dict(title='Curvature - Transverse Momentum Calibration Residuals Plot',
+                                              ylabel=r'Residuals $[cm^{-1}]$',
+                                              xlabel=r'$\frac{1}{p cos(\theta)}[GeV^{-1}]$'))
+    b, db = [], []
     for particle in ['electron', 'muon']:
         df = kappa_pt(data[particle])
         y, dy = df.k, df.dk
         x, dx = 1 / df.pt, df.dpt / df.pt ** 2
         beta_guess = [1.3 / B_FACTOR, 0]
-        out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
-        out_dic[particle] = out, chi, p_value
+        out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess)
         if plot_it:
             fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o', label=f'{particle.title()} Data')
-            fit.plot(out.xplus, out.y, label=f'{particle.title()} Fit')
-            res.errorbar(x=out.xplus, xerr=dx, y=out.eps, yerr=dy, fmt='o', label=f'{particle.title()}')
+            fit.plot(x, np.poly1d(out.beta)(x), label=f'{particle.title()} Fit')
+            res.errorbar(x=x, xerr=dx, y=np.poly1d(out.beta)(x) - y, yerr=dy, fmt='o', label=f'{particle.title()}')
         b.append(B_FACTOR * out.beta[0])
         db.append(B_FACTOR * out.sd_beta[0])
         print(f'{particle.title()} Kappa-Momentum GOF')
@@ -156,7 +152,6 @@ def calibrate_pt(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
         res.plot(np.linspace(res.get_xlim()[0], res.get_xlim()[1], 10), np.zeros(10), color='C3')
         res.grid()
         res.legend()
-    return out_dic
 
 
 def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
@@ -174,22 +169,22 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
             dict of the fitted parameters for each particle {particle name: (scipy.odr.Output, chi^2_reduced , p-value)}
         """
     if plot_it:
-        _, fit = plt.subplots(subplot_kw=dict(title=f'Pulse Height - Energy Calibration',
-                                              ylabel=r'$E[GeV]$', xlabel=r'$ph$'))
-        _, res = plt.subplots(subplot_kw=dict(title=f'Pulse Height - Energy Calibration Residuals Plot',
-                                              ylabel=r'$f(ph_i) - E_i[GeV]$', xlabel=r'$ph$'))
+        _, fit = plt.subplots(subplot_kw=dict(title='Pulse Height - Energy Calibration',
+                                              ylabel=r'$E[GeV]$', xlabel='Pulse Height'))
+        _, res = plt.subplots(subplot_kw=dict(title='Pulse Height - Energy Calibration Residuals Plot',
+                                              ylabel=r'Residuals $[GeV]$', xlabel='Pulse Height'))
     out_dic = {}
     for particle in ['electron', 'photon']:
         df = ph_energy(data[particle])
-        x, dx = df.e, df.de
-        y, dy = df.ph, df.dph
+        y, dy = df.e, df.de
+        x, dx = df.ph, df.dph
         beta_guess = [1, 1]
         out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
         if plot_it:
             fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o', label=f'{particle.title()} Data')
-            fit.plot(out.xplus, out.y, label=f'{particle.title()} Fit')
-            res.errorbar(x=out.xplus, xerr=dx, y=out.eps, yerr=dy, fmt='o', label=f'{particle.title()}')
+            fit.plot(x, np.poly1d(out.beta)(x), label=f'{particle.title()} Fit')
+            res.errorbar(x=x, xerr=dx, y=np.poly1d(out.beta)(x) - y, yerr=dy, fmt='o', label=f'{particle.title()}')
         print(f'{particle.title()} Pulse Height-Energy GOF')
         print(f'chi^2_red = {chi}')
         print(f'P_value = {p_value}')
@@ -205,16 +200,6 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
     return out_dic
 
 
-def best_fit(outs):
-    """Choosing best fit"""
-    best = 0
-    for key, (_, _, p_value) in outs.items():
-        if abs(p_value-0.5) < abs(best-0.5):
-            best_key = key
-            best = p_value
-    return outs[best_key][0]
-
-
 if __name__ == '__main__':
     # loading/creating data
     path = Path('data/calibration.pickle')
@@ -227,5 +212,5 @@ if __name__ == '__main__':
         with open(path, 'wb') as f:
             # Pickle the 'data' dictionary using the highest protocol available.
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-    out_momentum = best_fit(calibrate_pt(data))
-    out_eneregy = best_fit(calibrate_energy(data))
+    calibrate_pt(data)
+    calibrate_energy(data)

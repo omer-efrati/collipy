@@ -3,7 +3,7 @@ Helper module for collipy package
 """
 import time
 import numpy as np
-from scipy import stats, odr
+from scipy import stats, odr, optimize
 from timeit import default_timer as timer
 import functools
 
@@ -93,6 +93,10 @@ def breit_wigner(beta, x):
     (x**2 - b_2**2)**2 + b_2**2 * b_3**2
     """
     return beta[1] / ((x**2 - beta[2]**2)**2 + beta[2]**2 * beta[3]**2) + beta[0]
+
+
+def expon(beta, x):
+    return beta[0] * np.exp(-x/beta[1]) + beta[2]
 
 
 def n_sigma(x: tuple[float, float], y: tuple[float, float]) -> float:

@@ -19,7 +19,7 @@ def collect():
     """collecting `n` injections for each particle and momentum concurrently"""
     alpha = 1
     particles = ['electron', 'muon', 'photon']
-    momenta = np.arange(10, 110, 10)
+    momenta = np.arange(1, 11, 1)
     modes = [cp.DecayMode(0, 1, 1), cp.DecayMode(0, 1, 1), cp.DecayMode(0, 0, 1)]
     n = 200
     threshold = 0.05
@@ -178,7 +178,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
         df = ph_energy(data[particle])
         y, dy = df.e, df.de
         x, dx = df.ph, df.dph
-        beta_guess = [1, 1]
+        beta_guess = [0.02, 0.2]
         out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
         if plot_it:
@@ -202,7 +202,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
 
 if __name__ == '__main__':
     # loading/creating data
-    path = Path('data/calibration.pickle')
+    path = Path('data/calibration_new.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:

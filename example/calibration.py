@@ -6,6 +6,7 @@ from pathlib import Path
 import collipy as cp
 import numpy as np
 import pandas as pd
+from scipy import stats
 from scipy.constants import c, giga, centi
 from collipy.helper import function_timer
 import matplotlib.pyplot as plt
@@ -50,13 +51,24 @@ def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
     rows = []
     for ic in lst:
         track = ic.get_df()[1]
+        k = track.k
+        dk = track.dk
+        tan_theta = track.tan_theta
+        dtan_theta = track.dtan_theta
+        # removing outliers
+        for _ in range(100):
+            z = np.abs(stats.zscore(k))
+            k = k[z < 3]
+            dk = dk[z < 3]
+            tan_theta = tan_theta[z < 3]
+            dtan_theta = dtan_theta[z < 3]
         # adding statistical uncertainty to the measurements and calculating the mean
-        dk = np.sqrt(track.dk ** 2 + np.var(track.k, ddof=1))
-        k, sum = np.average(track.k, weights=dk ** -2, returned=True)
+        dk = np.sqrt(dk ** 2 + np.var(k, ddof=1))
+        k, sum = np.average(k, weights=dk ** -2, returned=True)
         dk = np.sqrt(sum ** -1)
-        theta = np.arctan(track.tan_theta)
-        dtheta = track.dtan_theta / (1 + track.tan_theta ** 2)
-        p, dp = ic.momentum[0] * np.ones_like(track.tan_theta), ic.momentum[1] * np.ones_like(track.tan_theta)
+        theta = np.arctan(tan_theta)
+        dtheta = dtan_theta / (1 + tan_theta ** 2)
+        p, dp = ic.momentum[0] * np.ones_like(tan_theta), ic.momentum[1] * np.ones_like(tan_theta)
         pt = p * np.cos(theta)
         dpt = np.abs(pt) * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
         pt, sum = np.average(pt, weights=dpt ** -2, returned=True)
@@ -90,10 +102,16 @@ def ph_energy(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
     rows = []
     for ic in lst:
         ecal = ic.get_df()[2]
+        ph = ecal.ph
+        dph = ecal.dph
+        # removing outliers
+        for _ in range(100):
+            z = np.abs(stats.zscore(ph))
+            ph = ph[z < 3]
+            dph = dph[z < 3]
         n = len(ecal.ph)
-        # no pulse height uncertainty given from software, estimated by the pulse height variance
-        dph = np.std(ecal.ph, ddof=1) / np.sqrt(n)
-        ph = np.mean(ecal.ph)
+        ph, sum = np.average(ph, weights=dph**-2, returned=True)
+        dph = np.sqrt(1/sum)
         e = ic.momentum[0]
         de = ic.momentum[1] / np.sqrt(n)
         rows.append([ph, dph, e, de])  # for momenta that meet mass<<momentum
@@ -140,11 +158,11 @@ def calibrate_pt(data: {str: cp.InjectionCollection}, plot_it=False) -> dict:
         print(f'P_value = {p_value}')
         print(f'Beta: {out.beta}')
         print(f'Sd Beta: {out.sd_beta}')
-        print(f'B_0 = {B_FACTOR * out.beta[0]:0.5g} +- {B_FACTOR * out.sd_beta[0]:0.5g} Tesla')
+        print(f'B_0 = {B_FACTOR * out.beta[0]} +- {B_FACTOR * out.sd_beta[0]} Tesla')
         print()
     avg, sum = np.average(b, weights=np.array(db) ** -2, returned=True)
     davg = np.sqrt(sum) ** -1
-    print(f'B_0_avg = {avg:0.5g} +- {davg:0.2g} Tesla')
+    print(f'B_0_avg = {avg} +- {davg} Tesla')
     print()
     if plot_it:
         fit.grid()
@@ -178,7 +196,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
         df = ph_energy(data[particle])
         y, dy = df.e, df.de
         x, dx = df.ph, df.dph
-        beta_guess = [0.02, 0.2]
+        beta_guess = [1, 1, 1, 1]
         out, chi, p_value = cp.fit(x, y, dy, lambda beta, x: np.poly1d(beta)(x), beta_guess, dx)
         out_dic[particle] = out, chi, p_value
         if plot_it:
@@ -202,7 +220,7 @@ def calibrate_energy(data: {str: cp.InjectionCollection}, plot_it=False) -> dict
 
 if __name__ == '__main__':
     # loading/creating data
-    path = Path('data/calibration_new.pickle')
+    path = Path('data/calibration.pickle')
     folder = 'data'
     if path.exists():
         with open(path, 'rb') as f:

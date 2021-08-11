@@ -43,6 +43,7 @@ def fit(x, y, sy, func, beta_initial=None, sx=None) -> tuple[odr.Output, float, 
         myodr = odr.ODR(data, model, beta0=beta_initial)
     else:
         myodr = odr.ODR(data, model)
+    myodr.set_job(fit_type=2)
     output = myodr.run()
     chisq_red, p_value = gof(x, y, sy, func, output.beta, sx=sx)
     return output, chisq_red, p_value

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 @cp.function_timer
-def collect(cond):
+def collect():
     alpha = 1
     particle = 'pi-0'
     momentum = 1.2
@@ -46,9 +46,10 @@ def collect(cond):
 
 
 def e(ph, sd_ph):
-    a, b = [0.02059154, 0.42460696]
-    sd_a, sd_b = [1.39012156e-05, 1.54129220e-02]
+    a, b = [0.021, 0.175]
+    sd_a, sd_b = [0.00013701, 0.0068216]
     res = a * ph + b
+    res = np.poly1d([3.08860172e-10, -1.47074019e-06,  2.17405447e-02,  1.48156888e-01])(ph)
     sd_res = np.sqrt((sd_ph*a)**2 + (sd_a*ph)**2 + sd_b**2)
     return np.array(res), np.array(sd_res)
 

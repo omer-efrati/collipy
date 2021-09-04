@@ -68,11 +68,9 @@ def kappa_pt(lst: list[cp.InjectionCollection]) -> pd.DataFrame:
         dk = np.sqrt(sum ** -1)
         theta = np.arctan(tan_theta)
         dtheta = dtan_theta / (1 + tan_theta ** 2)
-        p, dp = ic.momentum[0] * np.ones_like(tan_theta), ic.momentum[1] * np.ones_like(tan_theta)
-        pt = p * np.cos(theta)
-        dpt = np.abs(pt) * np.sqrt((dp / p) ** 2 + (np.tan(theta) * dtheta) ** 2)
-        pt, sum = np.average(pt, weights=dpt ** -2, returned=True)
-        dpt = np.sqrt(sum ** -1)
+        pt = ic.momentum[0] * np.cos(theta)
+        pt = pt.mean()
+        dpt = 0.01 * pt     # as requested by instructor
         rows.append([k, dk, pt, dpt])
     df = pd.DataFrame(rows, columns=['k', 'dk', 'pt', 'dpt'])
     return df

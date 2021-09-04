@@ -24,84 +24,33 @@ def collect(cond):
     return data
 
 
-def cond_decay(inj):
-    """
-    Injection decay verification for K-short
-
-    Parameters
-    ----------
-    inj : cp.Injection
-
-    Returns
-    -------
-        bool
-            true for valid injection
-    """
-    if inj.track.k.iloc[0] * inj.track.k.iloc[1] < 0:
-        return True
+def cond(inj):
+    threshold = 0.05
+    # opposite charged particles
+    if np.sign(inj.track.k.iloc[0]) != np.sign(inj.track.k.iloc[1]):
+        if np.max(np.abs(inj.vertex.dx / inj.vertex.x)) <= threshold:
+            if np.max(
+                    np.abs([inj.track.dk / inj.track.k, inj.track.dtan_theta / inj.track.tan_theta])) <= threshold:
+                if np.max(np.abs(inj.vertex.dphi / inj.vertex.phi)) <= threshold:
+                    return True
     return False
 
 
-def cond_mass(threshold):
-    """
-    Injection precision condition for mass measurement
-
-    Parameters
-    ----------
-    inj : cp.Injection
-
-    Returns
-    -------
-        function
-            a function that returns true for valid injection
-    """
-    def cond(inj):
-        if cond_decay(inj):
-            if np.max(np.abs([inj.track.dk / inj.track.k, inj.track.dtan_theta / inj.track.tan_theta])) <= threshold:
-                if np.max(np.abs(inj.vertex.dphi/inj.vertex.phi)) <= threshold:
-                    return True
-        return False
-
-    return cond
-
-
-def cond_tau(threshold):
-    """
-    Injection precision condition for lifetime measurement
-
-    Parameters
-    ----------
-    inj : cp.Injection
-
-    Returns
-    -------
-        function
-            a function that returns true for valid injection
-    """
-    def cond(inj):
-        if cond_decay(inj):
-            if np.max(np.abs(inj.vertex.dx / inj.vertex.x)) <= threshold:
-                return True
-        return False
-
-    return cond
-
-
-def pt(k, sd_k):
-    alpha = 10
-    a, b = alpha * 1.94723710e-03, 3.39330299e-07
-    sd_a, sd_b = alpha * 1.06146108e-06, 3.13177014e-07
+def pt(k, sd_k, alpha):
+    a, b = alpha * 1.94725051e-03, 3.38959156e-07
+    sd_a, sd_b = alpha * 1.06133148e-06, 3.13139306e-07
     res = a / (k - b)
     sd_res = np.abs(res) * np.sqrt((sd_a/a)**2 + (sd_k/(k-b))**2 + (sd_b/(k-b))**2)
     return res, sd_res
 
 
-def get_momentum(track: pd.DataFrame) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+def get_momentum(data) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     # the curvature is positive for negative charged particle and vice versa
+    track = data.get_df()[1]
     plus = track.query('k < 0')
     minus = track.query('k > 0')
-    pt1, dpt1 = pt(plus.k, plus.dk)
-    pt2, dpt2 = pt(minus.k, minus.dk)
+    pt1, dpt1 = pt(plus.k, plus.dk, data.alpha)
+    pt2, dpt2 = pt(minus.k, minus.dk, data.alpha)
     theta1, dtheta1 = np.arctan(plus.tan_theta), plus.dtan_theta / (1 + plus.tan_theta ** 2)
     theta2, dtheta2 = np.arctan(minus.tan_theta), minus.dtan_theta / (1 + minus.tan_theta ** 2)
     p1 = pt1/np.cos(theta1)
@@ -125,13 +74,15 @@ def get_r(vertex) -> (float, float):
     return r, dr
 
 
-def get_time(mass, momentum, df: pd.DataFrame):
+def get_time(data):
+    df = data.get_df()[0]
+    momentum = data.momentum
     time, dtime = [], []
     for _, row in df.iterrows():
         r, dr = get_r(row)
         r, dr = r/100, dr/100
         r, dr = cp.pdg['k-short'].METER * r, cp.pdg['k-short'].METER * dr
-        m, dm = mass
+        m, dm = cp.pdg['k-short'].mass
         p, dp = momentum
         t = (m * r) / p
         dt = t * np.sqrt((dm/m)**2 + (dr/r)**2 + (dp/p)**2)
@@ -142,12 +93,8 @@ def get_time(mass, momentum, df: pd.DataFrame):
 
 
 def mass():
-    path = Path('data/kshort_mass.pickle')
-    if path.exists():
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-
-    # deleting unknown decays
+    with open('data/kshort15%.pickle', 'rb') as file:
+        data = pickle.load(file)
     data.cnt['total'] -= data.cnt[(0, 0, 0)]
     del data.cnt[(0, 0, 0)]
 
@@ -158,10 +105,10 @@ def mass():
     sd_br = np.sqrt((np.sqrt(np.sum(ni)) / N) ** 2 + (br / np.sqrt(N)) ** 2)
     print(f'Branching Ratio for K-short = {br} +- {sd_br}')
 
-    vertex, track, _ = data.get_df()
+    vertex, _, _ = data.get_df()
     m1, dm1 = cp.pdg['pi-plus'].mass
     m2, dm2 = cp.pdg['pi-minus'].mass
-    p1, dp1, p2, dp2 = get_momentum(track)
+    p1, dp1, p2, dp2 = get_momentum(data)
     phi, dphi = get_phi(vertex)
 
     one = m1 ** 2 + m2 ** 2
@@ -177,73 +124,68 @@ def mass():
     dmsq = np.sqrt(done ** 2 + dtwo ** 2 + dthree ** 2)
     m = np.sqrt(msq)
     dm = dmsq / (2 * m)
-    return m, dm
-
-    w = dm ** -2
-    bins = 11
-    y, x = np.histogram(a=m, bins=bins, range=(0.344, 0.65), weights=w)
-    dy = np.sqrt(np.histogram(a=m, bins=bins, range=(0.344, 0.65), weights=w ** 2)[0])
-    dx = ((x[1] - x[0]) / 2) * np.ones_like(y)
-    x = np.array([(x[i] + x[i + 1]) / 2 for i in range(len(x) - 1)])
-    x, dx, y = x[30 < dy], dx[30 < dy], y[30 < dy]
-    dy = dy[30 < dy]
-    beta_initial = [0, 1, cp.pdg['k-short'].mass[0], 0.1]
-    out, chisq_red, p_value = cp.fit(x, y, dy, cp.breit_wigner, beta_initial)
-
-    _, mass_fit = plt.subplots(subplot_kw=dict(title=f'$K^0_s$ Mass Distribution',
-                                               ylabel=r'Weighted Events', xlabel=r'$Mass[GeV]$'))
-    _, mass_res = plt.subplots(subplot_kw=dict(title=f'$K^0_s$ Mass Distribution Residuals Plot',
-                                               ylabel=r'Weighted Events Residuals', xlabel=r'$Mass[GeV]$'))
-    mass_fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
-    mass_fit.plot(np.linspace(0.344, 0.65, 10_000), cp.breit_wigner(out.beta, np.linspace(0.344, 0.65, 10000)))
-    mass_res.errorbar(x=x, xerr=dx, y=y - cp.breit_wigner(out.beta, x), yerr=dy, fmt='o')
-    mass_res.plot(np.linspace(mass_res.get_xlim()[0], mass_res.get_xlim()[1], 10), np.zeros(10), color='C3')
+    y, x = np.histogram(m, bins=10, range=(min(m), 2 * cp.pdg['k-short'].mass[0] - min(m)))
+    dy = np.sqrt(y)
+    dx = np.full_like(y, (x[1] - x[0]) / 2, dtype=float)
+    x = np.array([(x[i - 1] + x[i]) / 2 for i in range(1, len(x))])
+    beta_initial = [160, cp.pdg['k-short'].mass[0], cp.pdg['k-short'].tau[0]*1e6]
+    out, chisq_red, p_value = cp.fit(x, y, dy, cp.breit_wigner, beta_initial, dx)
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw=dict(hspace=0, height_ratios=[3, 1]))
+    fig.suptitle(r'$K^0_s$ Mass Distribution')
+    fig.supxlabel(r'$m[GeV]$')
+    ax1.set_ylabel(r'Events')
+    ax1.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
+    xs = np.linspace(0.3, 2 * out.beta[1] - 0.3, 10_000)
+    ax1.plot(xs, cp.breit_wigner(out.beta, xs))
+    ax1.grid()
+    ax2.set_ylabel('$residuals$')
+    ax2.errorbar(x=x, xerr=dx, y=y - cp.breit_wigner(out.beta, x), yerr=dy, fmt='o')
+    ax2.axhline(0, color='C3')
+    ax2.grid()
     print(f'K0_s Mass Distribution')
     print(f'chi^2_red = {chisq_red}')
     print(f'P_value = {p_value}')
-    print(f'Mass = {out.beta[2]} +- {out.sd_beta[2]} : '
-          f'N_sigma = {cp.n_sigma((out.beta[2], out.sd_beta[2]), cp.pdg["k-short"].mass)}')
-    print(f'Gamma = {out.beta[3]} +- {out.sd_beta[3]} : '
-          f'N_sigma = {cp.n_sigma((out.beta[3], out.sd_beta[3]), ((cp.pdg["k-short"].tau[0] * cp.pdg["k-short"].SEC) ** -1, cp.pdg["k-short"].tau[1] / (cp.pdg["k-short"].tau[0] ** 2 * cp.pdg["k-short"].SEC)))}')
+    print(f'Mass = {out.beta[1]} +- {out.sd_beta[1]} : '
+          f'N_sigma = {cp.n_sigma((out.beta[1], out.sd_beta[1]), cp.pdg["k-short"].mass)}')
+    print(f'Gamma = {out.beta[2]} +- {out.sd_beta[2]} : '
+          f'N_sigma = {cp.n_sigma((out.beta[2], out.sd_beta[2]), ((cp.pdg["k-short"].tau[0] * cp.pdg["k-short"].SEC) ** -1, cp.pdg["k-short"].tau[1] / (cp.pdg["k-short"].tau[0] ** 2 * cp.pdg["k-short"].SEC)))}')
+
 
 def lifetime():
-    path = Path('data/kshort_time.pickle')
-    if path.exists():
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-
-    t, dt = get_time(cp.pdg['k-short'].mass, data.momentum, data.get_df()[0])
-    z = np.abs(stats.zscore(t))
-    # throwing outliers
-    t, dt = t[z < 3], dt[z < 3]
-    w = dt ** -2
-    bins = 7
-    y, x = np.histogram(a=t, bins=bins)
+    with open('data/kshort_lifetime.pickle', 'rb') as file:
+        data = pickle.load(file)
+    t, dt = get_time(data)
+    # t, dt = t[:200], dt[:200]
+    y, x = np.histogram(t, bins=6, range=(5.3e-11, 2e-10))
     dy = np.sqrt(y)
     dx = ((x[1] - x[0]) / 2) * np.ones_like(y)
     x = np.array([(x[i] + x[i + 1]) / 2 for i in range(len(x) - 1)])
-    x, dx, y = x[0 < dy], dx[0 < dy], y[0 < dy]
-    dy = dy[0 < dy]
     beta_initial = [np.max(y) / np.exp(-x[np.argmax(y)] / cp.pdg['k-short'].tau[0]), cp.pdg['k-short'].tau[0], 0]
     out, chisq_red, p_value = cp.fit(x, y, dy, cp.expon, beta_initial, dx)
-    _, tau_fit = plt.subplots(subplot_kw=dict(title=f'$K^0_s$ Lifetime Distribution',
-                                              ylabel=r'Events', xlabel=r'$\tau[s]$'))
-    _, tau_res = plt.subplots(subplot_kw=dict(title=f'$K^0_s$ Lifetime Distribution Residuals Plot',
-                                              ylabel=r'$f(Event_i) - Event_i$', xlabel=r'$\tau[s]$'))
-    tau_fit.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
-    xs = np.linspace(tau_fit.get_xlim()[0], tau_fit.get_xlim()[1], 10_000)
-    tau_fit.plot(xs, cp.expon(out.beta, xs))
-    tau_res.errorbar(x=x, xerr=dx, y=y - cp.expon(out.beta, x), yerr=dy, fmt='o')
-    tau_res.plot(np.linspace(tau_res.get_xlim()[0], tau_res.get_xlim()[1], 10), np.zeros(10), color='C3')
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw=dict(hspace=0, height_ratios=[3, 1]))
+    fig.suptitle(r'$K^0_s$ Lifetime Distribution')
+    fig.supxlabel(r'$\tau[s]$')
+    ax1.set_ylabel(r'Events')
+    ax1.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
+    xs = np.linspace(ax1.get_xlim()[0], ax1.get_xlim()[1], 10_000)
+    ax1.plot(xs, cp.expon(out.beta, xs))
+    ax1.grid()
+    ax2.set_ylabel('$residuals$')
+    ax2.errorbar(x=x, xerr=dx, y=y - cp.expon(out.beta, x), yerr=dy, fmt='o')
+    ax2.axhline(0, color='C3')
+    ax2.grid()
     print(f'K0_s Lifetime Distribution')
     print(f'chi^2_red = {chisq_red}')
     print(f'P_value = {p_value}')
     print(f'Tau = {out.beta[1]} +- {out.sd_beta[1]} : '
           f'N_sigma = {cp.n_sigma((out.beta[1], out.sd_beta[1]), cp.pdg["k-short"].tau)}')
 
+    # print(f'K0_s Lifetime Distribution')
+    # print(f'chi^2_red = {chisq_red}')
+    # print(f'P_value = {p_value}')
+    # print(f'Tau = {out.beta[1]} +- {out.sd_beta[1]} : '
+    #       f'N_sigma = {cp.n_sigma((out.beta[1], out.sd_beta[1]), cp.pdg["k-short"].tau)}')
+
 
 if __name__ == '__main__':
-    path = Path('data/kshort_time.pickle')
-    data = collect(cond_tau(0.05))
-    with open(path, 'wb') as f:
-        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+    lifetime()

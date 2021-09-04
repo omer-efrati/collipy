@@ -68,12 +68,8 @@ def get_r_hat(ecal) -> (float, float):
 
 if __name__ == '__main__':
     path = Path('data/pizero.pickle')
-    if path.exists():
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-    else:
-        data = collect()
-
+    with open(path, 'rb') as f:
+        data = pickle.load(f)
     _, _, ecal = data.get_df()
     m, dm = [], []
     for _, inj_ecal in ecal.groupby(level=0):
@@ -94,20 +90,25 @@ if __name__ == '__main__':
         dm.append(dmass/(2 * np.sqrt(mass)))
     m = np.array(m)
     dm = np.array(m)
+    y, x = np.histogram(m, bins='auto', range=(0.12, 2*cp.pdg['pi-0'].mass[0]-0.12))
+    dy = np.sqrt(y)
+    dx = np.full_like(y, (x[1] - x[0]) / 2, dtype=float)
+    x = np.array([(x[i] + x[i + 1]) / 2 for i in range(len(x) - 1)])
+    beta_initial = [9e-4, cp.pdg['pi-0'].mass[0], 0.0076]
+    out, chisq_red, p_value = cp.fit(x, y, dy, cp.breit_wigner, beta_initial)
 
-    # dm = dm[0.1 < m]
-    # m = m[0.1 < m]
-    # z = stats.zscore(m)
-    # m = m[z < 3]
-    # dm = dm[z < 3]
-    # y, x = np.histogram(a=m, bins='auto')
-    # dy = np.sqrt(y)
-    # dx = ((x[1] - x[0]) / 2) * np.ones_like(y)
-    # x = np.array([(x[i] + x[i + 1]) / 2 for i in range(len(x) - 1)])
-    # x, dx, y = x[0 < dy], dx[0 < dy], y[0 < dy]
-    # dy = dy[0 < dy]
-    # beta_initial = [0, 9e-4, cp.pdg['pi-0'].mass[0], 0.0076]
-    # out, chisq_red, p_value = cp.fit(x, y, dy, cp.breit_wigner, beta_initial)
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, gridspec_kw=dict(hspace=0, height_ratios=[3, 1]))
+    fig.suptitle(r'$\pi^0$ Mass Distribution')
+    fig.supxlabel(r'$\m~[GeV]$')
+    ax1.set_ylabel(r'Events')
+    ax1.errorbar(x=x, xerr=dx, y=y, yerr=dy, fmt='o')
+    xs = np.linspace(ax1.get_xlim()[0], ax1.get_xlim()[1], 10_000)
+    ax1.plot(xs, cp.expon(out.beta, xs))
+    ax1.grid()
+    ax2.set_ylabel('$residuals$')
+    ax2.errorbar(x=x, xerr=dx, y=y - cp.expon(out.beta, x), yerr=dy, fmt='o')
+    ax2.axhline(0, color='C3')
+    ax2.grid()
 
     # _, mass_fit = plt.subplots(subplot_kw=dict(title=f'$\pi^0$ Mass Distribution',
     #                                            ylabel=r'Events', xlabel=r'$Mass[GeV]$'))
@@ -124,4 +125,3 @@ if __name__ == '__main__':
     #       f'N_sigma = {cp.n_sigma((out.beta[2], out.sd_beta[2]), cp.pdg["pi-0"].mass)}')
     # print(f'Gamma = {out.beta[3]} +- {out.sd_beta[3]:.2g} : '
     #       f'N_sigma = {cp.n_sigma((out.beta[3], out.sd_beta[3]), ((cp.pdg["pi-0"].tau[0] * cp.pdg["pi-0"].SEC) ** -1, cp.pdg["pi-0"].tau[1] / (cp.pdg["pi-0"].tau[0] ** 2 * cp.pdg["pi-0"].SEC)))}')
-

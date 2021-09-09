@@ -1,6 +1,6 @@
 # <img alt="ColliPy" src="/branding/logo_header/logo_header_cut.jpeg" height="150">
 
-Collider simulator
+Particle Detector Simulation Manager
 
 ## List of available particles
 

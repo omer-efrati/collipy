@@ -1,6 +1,6 @@
 # <img alt="ColliPy" src="/branding/logo_header/logo_header_cut.jpeg" height="150">
 
-Collider simulator for TAU Physics Laboratory C Course
+Collider simulator
 
 ## List of available particles
 
